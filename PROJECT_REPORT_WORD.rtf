@@ -1,0 +1,258 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Times New Roman;}{\f1 Arial;}}
+{\colortbl;\red0\green0\blue0;}
+\paperw11906\paperh16838\margl1440\margr1440\margt1440\margb1440
+\fs24
+\pard\qc\b\f1\fs36 LSNet3D BraTS Segmentation for Brain Tumor Delineation\par
+\par
+\pard\qc\f0\fs28 <Your Name>\par
+\pard\qc\f0\fs28 <Your Student ID>\par
+\par
+\pard\qc\f0\fs24 <GitHub link / OneDrive link>\par
+\par
+\pard\qc\b\f1\fs28 UXCFXK-30-3\par
+\pard\qc\b\f1\fs28 Digital Systems Project\par
+\b0
+\page
+
+\pard\b\f1\fs28 Abstract\par
+\b0\f0\fs24
+This project develops a 3D medical image segmentation system for automatic brain tumor delineation on BraTS MRI volumes. The proposed pipeline combines an LSNet3D-inspired encoder, a CBAM-enhanced 3D decoder, and deep supervision with multi-scale auxiliary outputs. The training objective uses a combined weighted Cross-Entropy and Soft Dice loss to address class imbalance and improve overlap quality for small tumor regions, especially Enhancing Tumor (ET). The implementation supports both raw BraTS folder structure and nnU-Net dataset.json format, includes smart foreground cropping and basic augmentation, and is trained using PyTorch Lightning for reproducibility.\par
+\par
+Experimental results from the project logs show a best validation average Dice score of 0.8275 at epoch 82 (best_model_epoch=82_dice=0.8275.ckpt), with per-region Dice of ET 0.7785, TC 0.8114, and WT 0.8925. The system also includes sliding-window inference and qualitative visual reports for axial, coronal, and sagittal views with prediction-versus-ground-truth overlays. Overall, the project demonstrates a robust and extensible baseline for 3D brain tumor segmentation, while highlighting clear opportunities for future improvement in ET boundary precision and cross-dataset generalization.\par
+\par
+\pard\b\f1\fs28 Acknowledgements\par
+\b0\f0\fs24
+I would like to thank my supervisor, module instructors, and peers for guidance and feedback throughout this project. I also acknowledge the BraTS challenge organizers for providing benchmark datasets and the open-source community for PyTorch, PyTorch Lightning, and related scientific imaging tools used in this implementation.\par
+\par
+\pard\b\f1\fs28 Table of Contents\par
+\b0\f0\fs24
+Abstract\tab 1\par
+Acknowledgements\tab 2\par
+Table of Contents\tab 3\par
+Table of Figures\tab 4\par
+Introduction\tab 5\par
+Literature Review\tab 6\par
+Design\tab 7\par
+Implementation and Testing\tab 8\par
+Project Evaluation\tab 9\par
+Further Work and Conclusion\tab 10\par
+Glossary\tab 11\par
+Table of Abbreviations\tab 12\par
+References / Bibliography\tab 13\par
+Appendix A: First Appendix\tab 14\par
+\par
+\pard\b\f1\fs28 Table of Figures\par
+\b0\f0\fs24
+Figure 1. Training metrics across epochs (my_lsnet_3d_results.png)\par
+Figure 2. Example inference report with multi-view overlays (test_outputs/BraTS_Test_471_Final.png)\par
+\page
+
+\pard\b\f1\fs28 Introduction\par
+\b0\f0\fs24
+Brain tumor segmentation from MRI is a critical task in computer-aided diagnosis and treatment planning. Manual annotation is time-consuming and subject to inter-observer variation, motivating the need for automatic and reliable segmentation systems. The BraTS benchmark defines three clinically important regions: Enhancing Tumor (ET), Tumor Core (TC), and Whole Tumor (WT).\par
+\par
+The aim of this project is to build a practical 3D segmentation pipeline tailored for BraTS data, with the following objectives:\par
+- Design an end-to-end model that ingests four MRI modalities (T1, T1ce, T2, FLAIR) and outputs voxel-wise tumor labels.\par
+- Improve learning on small and imbalanced tumor regions through weighted losses and tumor-focused sampling.\par
+- Provide a reproducible training and testing workflow with quantitative metrics and qualitative visualization.\par
+\par
+The final system is implemented in Python using PyTorch and PyTorch Lightning, with support for both training and full-volume inference.\par
+\par
+\pard\b\f1\fs28 Literature Review\par
+\b0\f0\fs24
+Recent progress in medical image segmentation has been driven by encoder-decoder architectures and transformer or hybrid designs. U-Net-style skip connections remain widely used because they preserve fine spatial detail while capturing semantic context. For BraTS tasks, volumetric (3D) models generally outperform 2D models by exploiting inter-slice continuity.\par
+\par
+Key concepts relevant to this project include:\par
+- Dice-based optimization: Dice overlap is strongly correlated with segmentation quality on imbalanced medical data.\par
+- Class imbalance handling: Weighted cross-entropy and region-aware sampling improve rare class learning.\par
+- Attention mechanisms: Channel and spatial attention, such as CBAM, can enhance feature selectivity for lesion regions.\par
+- Multi-scale supervision: Auxiliary outputs at different resolutions improve gradient flow and convergence stability.\par
+\par
+This project aligns with those directions by combining an LSNet3D-style backbone with CBAM-based decoder attention and deep supervision.\par
+\page
+
+\pard\b\f1\fs28 Design\par
+\b0\f0\fs24
+\b 3.1 System Overview\par
+\b0
+The pipeline consists of:\par
+- Data loading and preprocessing for BraTS volumes.\par
+- LSNet3D encoder for hierarchical 3D feature extraction.\par
+- CBAM-enhanced decoder with skip connections and auxiliary outputs.\par
+- Combined loss (weighted CE + Soft Dice).\par
+- BraTS metric evaluation (Dice for ET, TC, and WT; optional HD95).\par
+- Sliding-window full-volume inference and report visualization.\par
+\par
+\b 3.2 Data Design\par
+\b0
+Input format supports:\par
+- Raw BraTS case folders (*_t1.nii, *_t1ce.nii, *_t2.nii, *_flair.nii, *_seg.nii).\par
+- nnU-Net format (imagesTr, labelsTr, dataset.json).\par
+\par
+Preprocessing includes:\par
+- Label remap to 4 classes: background = 0, NCR/NET = 1, ED = 2, ET = 3, with original label 4 mapped to 3.\par
+- Per-modality z-score normalization on non-zero brain voxels.\par
+- Tumor-aware cropping (64 x 64 x 64) with 70 percent probability centered near foreground.\par
+- Random flip and light Gaussian noise augmentation during training.\par
+\par
+\b 3.3 Model Design\par
+\b0
+- Encoder: LSNet3D with dynamic large and small kernel components (LKP3D, SKA3D), residual FFN blocks, and attention at the deeper stage.\par
+- Decoder: Progressive 3D upsampling with skip fusion and CBAM at each stage.\par
+- Deep supervision: Auxiliary logits at 8^3, 16^3, and 32^3 scales, plus a main 64^3 output.\par
+\par
+\b 3.4 Loss and Optimization Design\par
+\b0
+- Main criterion: DS_UNETR_PlusPlus_Loss = CrossEntropy + SoftDice.\par
+- Class weights: [0.1, 1.0, 1.0, 5.0] to reduce background dominance and emphasize ET.\par
+- Total training loss: L_main + 0.3 x mean(L_aux).\par
+- Optimizer: AdamW (lr = 1e-4, weight_decay = 1e-5).\par
+- Scheduler: ReduceLROnPlateau monitored by val_dice_avg.\par
+\page
+
+\pard\b\f1\fs28 Implementation and Testing\par
+\b0\f0\fs24
+\b 4.1 Development Environment\par
+\b0
+- Language: Python\par
+- Frameworks: PyTorch, PyTorch Lightning\par
+- Medical I/O: nibabel\par
+- Plotting: matplotlib\par
+- Data split: scikit-learn train_test_split\par
+\par
+\b 4.2 Training Configuration\par
+\b0
+- Batch size: 4\par
+- Patch or crop size: 64^3\par
+- Max epochs: 200\par
+- Precision: mixed precision (16-bit) on GPU, 32-bit on CPU\par
+- Validation checkpoint: best by val_dice_avg\par
+\par
+\b 4.3 Testing Workflow\par
+\b0
+Testing is performed using test_model.py:\par
+- Loads Lightning checkpoint weights.\par
+- Runs sliding-window inference (window_size = 128, overlap = 0.5) on full volumes.\par
+- Converts predictions to BraTS regions and computes ET, TC, and WT Dice.\par
+- Optionally computes HD95 if SciPy is installed.\par
+- Saves full visual reports in test_outputs.\par
+\par
+\b 4.4 Verification and Artifacts\par
+\b0
+- Training metrics plot: my_lsnet_3d_results.png\par
+- Example qualitative output: test_outputs/BraTS_Test_471_Final.png\par
+- Saved best checkpoint: weight/BraTS/best_model_epoch=82_dice=0.8275.ckpt\par
+\page
+
+\pard\b\f1\fs28 Project Evaluation\par
+\b0\f0\fs24
+\b 5.1 Quantitative Results (Validation)\par
+\b0
+From lightning_logs/version_7/metrics.csv (epoch-averaged):\par
+- Best epoch: 82\par
+- val_dice_avg: 0.8275\par
+- val_dice_tc: 0.8114\par
+- val_dice_wt: 0.8925\par
+- val_dice_et: 0.7785\par
+- val_loss: 0.9264\par
+\par
+Final logged epoch 111 indicates slight regression versus the best checkpoint:\par
+- val_dice_avg: 0.8106\par
+- val_dice_tc: 0.8012\par
+- val_dice_wt: 0.8764\par
+- val_dice_et: 0.7543\par
+\par
+This supports selecting the best validation checkpoint rather than the final epoch for deployment.\par
+\par
+\b 5.2 Qualitative Results\par
+\b0
+Visual inspection of generated reports shows:\par
+- WT region is generally captured well and consistently.\par
+- TC is segmented with good spatial coherence.\par
+- ET remains the most challenging region due to small volume and fuzzy boundaries.\par
+\par
+\b 5.3 Strengths\par
+\b0
+- End-to-end 3D pipeline with reproducible train, validation, and test setup.\par
+- Robust support for multiple BraTS data layouts.\par
+- Practical enhancements for imbalance: weighted loss, foreground-aware cropping, and deep supervision.\par
+- Good WT and TC performance with interpretable outputs.\par
+\par
+\b 5.4 Limitations\par
+\b0
+- ET sensitivity and boundary precision can still vary across cases.\par
+- Current augmentation strategy is basic.\par
+- No cross-validation or external dataset testing yet.\par
+- HD95 evaluation depends on optional SciPy setup and may be computationally expensive.\par
+\page
+
+\pard\b\f1\fs28 Further Work and Conclusion\par
+\b0\f0\fs24
+\b 6.1 Further Work\par
+\b0
+- Introduce stronger augmentation such as elastic deformation, intensity shift, and contrast transforms.\par
+- Add post-processing such as connected-component filtering and region consistency rules.\par
+- Perform k-fold cross-validation for more reliable generalization estimates.\par
+- Explore larger crop sizes or memory-efficient full-resolution training.\par
+- Benchmark against nnU-Net and transformer-based baselines under identical splits.\par
+\par
+\b 6.2 Conclusion\par
+\b0
+This project successfully implemented and evaluated a 3D LSNet-based brain tumor segmentation system for BraTS data. The proposed combination of LSNet3D encoder, CBAM decoder, and deep supervision achieved a best validation average Dice of 0.8275, with strong WT and TC performance and acceptable ET results. The codebase is modular, reproducible, and suitable for future extension toward higher clinical robustness and stronger comparative benchmarking.\par
+\par
+\pard\b\f1\fs28 Glossary\par
+\b0\f0\fs24
+- Segmentation: voxel-wise classification of structures in an image.\par
+- Voxel: a volumetric pixel in 3D space.\par
+- Logits: raw model outputs before softmax or sigmoid normalization.\par
+- Deep Supervision: auxiliary losses attached to intermediate layers.\par
+- Sliding Window Inference: patch-wise prediction with overlap for full-size volumes.\par
+- Foreground Cropping: sampling patches centered around non-background regions.\par
+\par
+\pard\b\f1\fs28 Table of Abbreviations\par
+\b0\f0\fs24
+- BraTS: Brain Tumor Segmentation Challenge\par
+- MRI: Magnetic Resonance Imaging\par
+- ET: Enhancing Tumor\par
+- TC: Tumor Core\par
+- WT: Whole Tumor\par
+- CBAM: Convolutional Block Attention Module\par
+- CE: Cross-Entropy\par
+- DSC or Dice: Dice Similarity Coefficient\par
+- HD95: 95th percentile Hausdorff Distance\par
+- NCR/NET: Necrotic and Non-Enhancing Tumor Core\par
+- ED: Peritumoral Edema\par
+\page
+
+\pard\b\f1\fs28 References / Bibliography\par
+\b0\f0\fs24
+1. Menze, B. H., et al. (2015). The Multimodal Brain Tumor Image Segmentation Benchmark (BRATS). IEEE Transactions on Medical Imaging, 34(10), 1993-2024.\par
+2. Bakas, S., et al. (2018). Identifying the Best Machine Learning Algorithms for Brain Tumor Segmentation, Progression Assessment, and Overall Survival Prediction in the BRATS Challenge. arXiv:1811.02629.\par
+3. Isensee, F., et al. (2021). nnU-Net: A self-configuring method for deep learning-based biomedical image segmentation. Nature Methods, 18, 203-211.\par
+4. Woo, S., Park, J., Lee, J.-Y., and Kweon, I. S. (2018). CBAM: Convolutional Block Attention Module. ECCV 2018.\par
+5. Loshchilov, I., and Hutter, F. (2019). Decoupled Weight Decay Regularization (AdamW). ICLR 2019.\par
+6. Dice, L. R. (1945). Measures of the Amount of Ecologic Association Between Species. Ecology, 26(3), 297-302.\par
+7. Paszke, A., et al. (2019). PyTorch: An Imperative Style, High-Performance Deep Learning Library. NeurIPS 2019.\par
+8. Falcon, W., and The PyTorch Lightning Team. (2019). PyTorch Lightning. https://www.pytorchlightning.ai/\par
+\par
+\pard\b\f1\fs28 Appendix A: First Appendix\par
+\b0\f0\fs24
+\b A.1 Main Commands\par
+\b0
+python config/train.py\par
+python test_model.py\par
+python plot_metrics.py\par
+\par
+\b A.2 Repository Paths Used in This Report\par
+\b0
+config/train.py\par
+config/segmentor.py\par
+datasets/datasets.py\par
+module/model/lsnet3d.py\par
+module/model/decoder3d.py\par
+loss/loss.py\par
+metrics/metrics.py\par
+test_model.py\par
+lightning_logs/version_7/metrics.csv\par
+}

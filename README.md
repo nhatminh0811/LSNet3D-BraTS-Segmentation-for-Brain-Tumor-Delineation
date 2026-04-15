@@ -1,5 +1,7 @@
 # LSNet3D BraTS Segmentation
 
+Licensed under the MIT License. Copyright (c) 2026 Nhat Minh.
+
 ## Overview
 
 This repository implements a 3D brain tumor segmentation pipeline based on an LSNet3D architecture for the BraTS dataset. The model uses an LSNet encoder, a 3D CBAM-enhanced decoder, multi-scale auxiliary supervision, and a combined cross-entropy + soft Dice loss for robust tumor region segmentation.
@@ -168,6 +170,10 @@ Example segmentation output showing multi-view visualization with brain overlays
 - Data normalization is applied per modality using brain region statistics
 - Smart cropping focuses training on tumor-containing regions while preserving random background crops
 - Segmentation overlays display predictions and ground truth directly on brain tissue for clinical interpretability
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
 

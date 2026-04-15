@@ -133,6 +133,8 @@ Thumbs.db
 lightning_logs/
 test_outputs/
 weight/
+my_lsnet_3d_results.png
+test_patients_list.txt
 datasets/BraTS/imagesTr/
 datasets/BraTS/imagesTs/
 datasets/BraTS/labelsTr/

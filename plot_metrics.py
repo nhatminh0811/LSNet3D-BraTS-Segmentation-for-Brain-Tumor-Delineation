@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # 1. Point to the path of your log file
-log_path = 'lightning_logs/version_2/metrics.csv' 
+log_path = 'lightning_logs/version_7/metrics.csv' 
 df = pd.read_csv(log_path)
 
 # PyTorch Lightning logs per step, we need to group by epoch for smoother plots
