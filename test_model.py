@@ -5,6 +5,9 @@ import os
 import torch
 import numpy as np
 import nibabel as nib
+import torch.nn.functional as F
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -199,6 +202,53 @@ def _overlay_segmentation(image_slice, seg_mask, alpha=0.45):
     return overlay
 
 
+def _pad_to_target(arr, target_h, target_w, fill_value=0):
+    """Center-pad a 2D or 3D HxW array to a fixed target canvas."""
+    h, w = arr.shape[:2]
+    if h == target_h and w == target_w:
+        return arr
+
+    if h > target_h or w > target_w:
+        raise ValueError(
+            f"Cannot pad array of shape {(h, w)} into smaller target {(target_h, target_w)}"
+        )
+
+    pad_h = target_h - h
+    pad_w = target_w - w
+    top = pad_h // 2
+    bottom = pad_h - top
+    left = pad_w // 2
+    right = pad_w - left
+
+    if arr.ndim == 2:
+        pad_width = ((top, bottom), (left, right))
+    else:
+        pad_width = ((top, bottom), (left, right), (0, 0))
+
+    return np.pad(arr, pad_width, mode='constant', constant_values=fill_value)
+
+
+def _resize_to_target(arr, target_h, target_w, is_mask=False):
+    """Resize a 2D or HxWxC array to the target size."""
+    arr = np.ascontiguousarray(arr)
+    if arr.shape[0] == target_h and arr.shape[1] == target_w:
+        return arr
+
+    tensor = torch.from_numpy(arr)
+    if arr.ndim == 2:
+        tensor = tensor.unsqueeze(0).unsqueeze(0).float()
+        mode = 'nearest' if is_mask else 'bilinear'
+        resized = F.interpolate(tensor, size=(target_h, target_w), mode=mode, align_corners=False if mode != 'nearest' else None)
+        out = resized.squeeze(0).squeeze(0).cpu().numpy()
+        return out.astype(arr.dtype) if is_mask else out
+
+    tensor = tensor.permute(2, 0, 1).unsqueeze(0).float()
+    mode = 'nearest' if is_mask else 'bilinear'
+    resized = F.interpolate(tensor, size=(target_h, target_w), mode=mode, align_corners=False if mode != 'nearest' else None)
+    out = resized.squeeze(0).permute(1, 2, 0).cpu().numpy()
+    return out.astype(arr.dtype) if is_mask else out
+
+
 def visualize_full_report(image_tensor, pred_probs, gt_seg=None, save_path="BraTS_Final_Report.png"):
     # 1. Convert prediction probabilities to mask
     pred_mask = _prob_to_mask(pred_probs)
@@ -230,30 +280,40 @@ def visualize_full_report(image_tensor, pred_probs, gt_seg=None, save_path="BraT
 
     titles = ['T1', 'T1ce', 'T2', 'FLAIR', 'PRED OVERLAY', 'GT OVERLAY']
     overlay_background = image_np[3]  # FLAIR is often best for tumor visibility
+    axial_reference = views[0][1](overlay_background)
+    target_h, target_w = axial_reference.shape
 
     for row, (view_name, get_slice) in enumerate(views):
         for col in range(4):
-            axs[row, col].imshow(get_slice(image_np[col]), cmap='gray', vmin=-2, vmax=2, aspect='auto')
+            mod_slice = _resize_to_target(
+                get_slice(image_np[col]),
+                target_h,
+                target_w,
+            )
+            axs[row, col].set_box_aspect(1)
+            axs[row, col].imshow(mod_slice, cmap='gray', vmin=-2, vmax=2, aspect='auto')
             axs[row, col].axis('off')
             if row == 0:
                 axs[row, col].set_title(titles[col], color='white', fontsize=16)
 
         # Prediction overlay on the brain image
-        bg = get_slice(overlay_background)
-        pred2d = get_slice(pred_mask)
+        bg = _resize_to_target(get_slice(overlay_background), target_h, target_w)
+        pred2d = _resize_to_target(get_slice(pred_mask), target_h, target_w, is_mask=True)
         overlay_pred = _overlay_segmentation(bg, pred2d)
+        axs[row, 4].set_box_aspect(1)
         axs[row, 4].imshow(bg, cmap='gray', vmin=-2, vmax=2, aspect='auto')
-        axs[row, 4].imshow(overlay_pred)
+        axs[row, 4].imshow(overlay_pred, aspect='auto')
         axs[row, 4].axis('off')
         if row == 0:
             axs[row, 4].set_title(titles[4], color='cyan', fontsize=16, fontweight='bold')
 
         # Ground truth overlay on the brain image
         if gt_mask is not None:
-            gt2d = get_slice(gt_mask)
+            gt2d = _resize_to_target(get_slice(gt_mask), target_h, target_w, is_mask=True)
             overlay_gt = _overlay_segmentation(bg, gt2d, alpha=0.35)
+            axs[row, 5].set_box_aspect(1)
             axs[row, 5].imshow(bg, cmap='gray', vmin=-2, vmax=2, aspect='auto')
-            axs[row, 5].imshow(overlay_gt)
+            axs[row, 5].imshow(overlay_gt, aspect='auto')
             axs[row, 5].axis('off')
             if row == 0:
                 axs[row, 5].set_title(titles[5], color='lime', fontsize=16, fontweight='bold')
@@ -262,7 +322,7 @@ def visualize_full_report(image_tensor, pred_probs, gt_seg=None, save_path="BraT
 
     plt.suptitle("BraTS: Prediction Overlay vs Ground Truth", color='white', fontsize=24, y=0.98)
     plt.savefig(save_path, facecolor='black', bbox_inches='tight')
-    print(f"✓ Full report saved at: {save_path}")
+    print(f"Full report saved at: {save_path}")
 
 # ==========================================================
 # 4. MAIN RUN
