@@ -74,7 +74,7 @@ Preprocessing includes:
 ### 3.3 Model Design
 - **Encoder:** `LSNet3D` with dynamic large/small kernel components (`LKP3D`, `SKA3D`), residual FFN blocks, and attention at deeper stage.
 - **Decoder:** Progressive 3D upsampling with skip fusion and CBAM at each stage.
-- **Deep supervision:** Auxiliary logits at 8³, 16³, and 32³ scales, plus main 64³ output.
+- **Deep supervision:** Auxiliary logits at 8Â³, 16Â³, and 32Â³ scales, plus main 64Â³ output.
 
 ### 3.4 Loss and Optimization Design
 - Main criterion: `DS_UNETR_PlusPlus_Loss = CrossEntropy + SoftDice`.
@@ -93,7 +93,7 @@ Preprocessing includes:
 
 ### 4.2 Training Configuration
 - Batch size: 4
-- Patch/crop size: 64³
+- Patch/crop size: 64Â³
 - Max epochs: 200
 - Precision: mixed-precision (16-bit) on GPU, 32-bit on CPU
 - Validation checkpoint: best by `val_dice_avg`
