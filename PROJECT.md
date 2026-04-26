@@ -1,9 +1,7 @@
 # LSNet3D BraTS Segmentation for Brain Tumor Delineation
 
-**Name:** `<Your Name>`  
-**Student ID:** `<Your Student ID>`  
-**Module:** UXCFXK-30-3 Digital Systems Project  
-**Resources:** `<GitHub link>`, `<OneDrive link (dataset/checkpoints/report assets)>`
+**Name:** `<Nguyen Nhat Minh>`  
+
 
 ## Abstract
 This project develops a 3D medical image segmentation system for automatic brain tumor delineation on BraTS MRI volumes. The proposed pipeline combines an LSNet3D-inspired encoder, a CBAM-enhanced 3D decoder, and deep supervision with multi-scale auxiliary outputs. The training objective uses a combined weighted Cross-Entropy and Soft Dice loss to address class imbalance and improve overlap quality for small tumor regions, especially Enhancing Tumor (ET). The implementation supports both raw BraTS folder structure and nnU-Net `dataset.json` format, includes smart foreground cropping and basic augmentation, and is trained using PyTorch Lightning for reproducibility.
